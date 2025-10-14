@@ -1,0 +1,15 @@
+[package]
+name = "icub3d-aes"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+aes = "0.8"
+cbc = "0.1"
+cipher = "0.4"
+block-padding = "0.3"
+hex = "0.4"
+rand = "0.8"
+anyhow = "1.0"
+base64 = "0.22"
