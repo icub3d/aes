@@ -4,6 +4,21 @@ version = 4
 
 [[package]]
 name = "aes"
+version = "0.1.0"
+dependencies = [
+ "aes 0.8.4",
+ "anyhow",
+ "base64",
+ "block-padding",
+ "cbc",
+ "cipher",
+ "clap",
+ "hex",
+ "rand",
+]
+
+[[package]]
+name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b169f7a6d4742236a0a00c541b845991d0ac43e546831af1249753ab4c3aa3a0"
@@ -206,21 +221,6 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
-
-[[package]]
-name = "icub3d-aes"
-version = "0.1.0"
-dependencies = [
- "aes",
- "anyhow",
- "base64",
- "block-padding",
- "cbc",
- "cipher",
- "clap",
- "hex",
- "rand",
-]
 
 [[package]]
 name = "inout"

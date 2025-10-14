@@ -1,5 +1,5 @@
 [package]
-name = "icub3d-aes"
+name = "aes"
 version = "0.1.0"
 edition = "2024"
 
