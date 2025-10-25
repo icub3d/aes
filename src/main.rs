@@ -31,6 +31,10 @@ enum Commands {
         #[arg(short = 'f', long)]
         key_file: Option<String>,
 
+        /// Initialization vector (must be 16 bytes). If not provided, a random IV is generated.
+        #[arg(long)]
+        iv: Option<String>,
+
         /// Output format (hex or base64)
         #[arg(short, long, default_value = "hex")]
         output_format: OutputFormat,
@@ -44,6 +48,10 @@ enum Commands {
         /// Path to file containing the key
         #[arg(short = 'f', long)]
         key_file: Option<String>,
+
+        /// Initialization vector (must be 16 bytes). If not provided, IV is extracted from ciphertext.
+        #[arg(long)]
+        iv: Option<String>,
 
         /// Input format (hex or base64)
         #[arg(short, long, default_value = "hex")]
@@ -64,11 +72,13 @@ fn main() -> Result<()> {
         Commands::Encrypt {
             key,
             key_file,
+            iv,
             output_format,
         } => {
             let key = load_key(key, key_file)?;
+            let iv_bytes = iv.map(|s| load_iv(&s)).transpose()?;
             let plaintext = read_stdin()?;
-            let ciphertext = encrypt(&plaintext, &key)?;
+            let ciphertext = encrypt(&plaintext, &key, iv_bytes.as_deref())?;
 
             let output = match output_format {
                 OutputFormat::Hex => hex::encode(&ciphertext),
@@ -80,9 +90,11 @@ fn main() -> Result<()> {
         Commands::Decrypt {
             key,
             key_file,
+            iv,
             input_format,
         } => {
             let key = load_key(key, key_file)?;
+            let iv_bytes = iv.map(|s| load_iv(&s)).transpose()?;
             let input = read_stdin_string()?;
 
             let ciphertext = match input_format {
@@ -94,7 +106,7 @@ fn main() -> Result<()> {
                 }
             };
 
-            let plaintext = decrypt(&ciphertext, &key)?;
+            let plaintext = decrypt(&ciphertext, &key, iv_bytes.as_deref())?;
             let output =
                 String::from_utf8(plaintext).context("Decrypted data is not valid UTF-8")?;
 
@@ -130,6 +142,14 @@ fn load_key(key_str: Option<String>, key_file: Option<String>) -> Result<Vec<u8>
     }
 }
 
+fn load_iv(iv_str: &str) -> Result<Vec<u8>> {
+    let bytes = iv_str.as_bytes().to_vec();
+    if bytes.len() != 16 {
+        anyhow::bail!("IV must be exactly 16 bytes, got {} bytes", bytes.len());
+    }
+    Ok(bytes)
+}
+
 fn read_stdin() -> Result<Vec<u8>> {
     let mut buffer = Vec::new();
     io::stdin()
@@ -146,10 +166,16 @@ fn read_stdin_string() -> Result<String> {
     Ok(buffer)
 }
 
-fn encrypt(plaintext: &[u8], key: &[u8]) -> Result<Vec<u8>> {
-    // Generate a random IV
-    let mut iv = [0u8; 16];
-    rand::thread_rng().fill(&mut iv);
+fn encrypt(plaintext: &[u8], key: &[u8], iv: Option<&[u8]>) -> Result<Vec<u8>> {
+    // Use provided IV or generate a random one
+    let (iv, prepend_iv) = if let Some(provided_iv) = iv {
+        let arr: [u8; 16] = provided_iv.try_into().context("Invalid IV length")?;
+        (arr, false)
+    } else {
+        let mut random_iv = [0u8; 16];
+        rand::thread_rng().fill(&mut random_iv);
+        (random_iv, true)
+    };
 
     // Create cipher
     let cipher = Aes256CbcEnc::new(key.into(), &iv.into());
@@ -170,20 +196,22 @@ fn encrypt(plaintext: &[u8], key: &[u8]) -> Result<Vec<u8>> {
         .encrypt_padded_mut::<Pkcs7>(&mut buffer, pos)
         .map_err(|_| anyhow::anyhow!("Encryption failed"))?;
 
-    // Prepend IV to ciphertext
-    let mut result = iv.to_vec();
+    // Prepend IV to ciphertext if it wasn't provided
+    let mut result = if prepend_iv { iv.to_vec() } else { Vec::new() };
     result.extend_from_slice(ciphertext);
 
     Ok(result)
 }
 
-fn decrypt(data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
-    if data.len() < 16 {
-        anyhow::bail!("Invalid ciphertext: too short to contain IV");
-    }
-
-    // Extract IV and ciphertext
-    let (iv, ciphertext) = data.split_at(16);
+fn decrypt(data: &[u8], key: &[u8], iv: Option<&[u8]>) -> Result<Vec<u8>> {
+    let (iv, ciphertext) = if let Some(provided_iv) = iv {
+        (provided_iv, data)
+    } else {
+        if data.len() < 16 {
+            anyhow::bail!("Invalid ciphertext: too short to contain IV");
+        }
+        data.split_at(16)
+    };
 
     // Create cipher
     let cipher = Aes256CbcDec::new(key.into(), iv.into());
