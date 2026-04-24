@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This repository has been migrated to [git.marsh.gg/icub3d/aes](https://git.marsh.gg/icub3d/aes). Please use the new URL for any future issues, pull requests, or clones.
+
 # AES CLI
 
 A simple command-line interface for encrypting and decrypting data using AES-256-CBC encryption.
